@@ -4,12 +4,12 @@ setwd("C:/Users/pandorfer/ownCloud/GIT/topicModeling")
 ## preprocessing ##
 ###################
 
-input.dir <- "./data"
-files.v <- dir(path = input.dir, pattern=".*txt")
-source("R/code/TopicModel_externalFunctions.R")
-topic.m <- NULL
-for (i in 1:length(files.v)){
-  text.v <- scan(paste(input.dir,files.v[4], sep="/"), what = "character", encoding = "UTF-8", sep = "\n")
+input.dir <- "./data" #loads the directory, where the .txt-files are stored
+files.v <- dir(path = input.dir, pattern=".*txt") #stores all filenames in a vector
+source("R/code/TopicModel_externalFunctions.R") # loads additional helper function
+topic.m <- NULL #creates an empty matrix which will store the text(chunks) and their according file names
+for (i in 1:length(files.v)){ #iterates over all files stored in the data-directory
+  text.v <- scan(paste(input.dir,files.v[i], sep="/"), what = "character", encoding = "UTF-8", sep = "\n")
   #convert text vector to a single string
   text.v <- paste(text.v, collapse = " ")
   #split the string on non word characters - returns a list
@@ -18,13 +18,16 @@ for (i in 1:length(files.v)){
   text.words.v <- unlist(text.words.v)
   #remove blanks
   text.words.v <- text.words.v[which(text.words.v!="")]
-  chunk.m <- makeFlexTextChunks(text.words.v, 5000)
+  chunk.m <- makeFlexTextChunks(text.words.v, 200)
   textname <- gsub("\\..*","", files.v[i])
   segments.m <- cbind(paste(textname, segment=1:nrow(chunk.m), sep="_"), chunk.m)
   topic.m <- rbind(topic.m, segments.m)
 }
 documents <- as.data.frame(topic.m, stringsAsFactors = FALSE)
 colnames(documents) <- c("id", "text")
+
+#writes the documents data frame to a csv file
+write.csv2(documents, file ='csv/documents.csv',row.names=FALSE)
 
 #############################################################
 #create a stopword list based on the preprocessed text      #
@@ -48,9 +51,9 @@ colnames(documents) <- c("id", "text")
 library(mallet)
 mallet.instances <- mallet.import(documents$id,
                                   documents$text,
-                                  "data/stoplist.csv",
+                                  "R/stoplist.csv",
                                   FALSE)
-topic.model <- MalletLDA(num.topics=111) #hier wird die Zahl der Topics festgelegt
+topic.model <- MalletLDA(num.topics=53) #hier wird die Zahl der Topics festgelegt
 topic.model$loadDocuments(mallet.instances)
 
 topic.model$setAlphaOptimization(40, 80)
@@ -66,7 +69,7 @@ dimnames(doc.topics.m) <-list(documents$id)
 
 topic.words.m <- mallet.topic.words(topic.model, smoothed=TRUE,normalized=TRUE)
 
-hansi <- mallet.top.words(topic.model, topic.words.m[50,], 150) #hier wird festgelegt, welches Topic als Wordcloud visualisiert wird
+hansi <- mallet.top.words(topic.model, topic.words.m[53,], 150) #hier wird festgelegt, welches Topic als Wordcloud visualisiert wird
 words <- hansi[,1]
 numbers <- hansi[,2]
 pal2 <- brewer.pal(3,"Dark2")
@@ -85,14 +88,14 @@ wordcloud(words, numbers,
 ###################################
 
 for(i in 1:length(topic.words.m)){
-  ppi <- 300
+  ppi <- 100
   hansi <- mallet.top.words(topic.model, topic.words.m[i,], 150)
   words <- hansi[,1]
   numbers <- hansi[,2]
   pal2 <- brewer.pal(3,"Dark2")
-  png(paste("plots/",i, ".png", sep = ""), width=6*ppi, height=6*ppi, res=ppi)
+  png(paste("plots/wordclouds/",i, ".png", sep = ""), width=6*ppi, height=6*ppi, res=ppi)
   wordcloud(words, numbers,
-            scale=c(3,0.5),
+            scale=c(2,0.5),
             max.words=150,
             random.order=FALSE,
             rot.per=0.35,
@@ -103,7 +106,7 @@ for(i in 1:length(topic.words.m)){
 }
 
 #####################################
-#create heatmat of topicdistribution#
+#create heatmap of topicdistribution#
 #####################################
 y <- 1
 first.word.m <- NULL
@@ -124,26 +127,19 @@ for (i in 1:length(filenames)){
   filenames.l <-rbind(filenames.l, file.name.part)
 }
 row.names(doc.topics.m) <-filenames.l
-#row.names(doc.topics.m) <-documents[,1]
-heatmap <- heatmap(doc.topics.m,
-                   Rowv=NA, Colv=NA,
-                   col = heat.colors(256),
-                   scale="row", margins=c(8,18),
-                   main="Themen der Thun-Korrespondenz",
-                   ylab="Dokumente", xlab="Themen")
 #install.packages("gplots")
 library(gplots)
-ppi <- 300
-png("plot.png", width=60*ppi, height=40*ppi, res=ppi)
-#pdf("heatmap.pdf", width=60, height=40)
+ppi <- 150
+png("plots/heatmap.png", width=90*ppi, height=70*ppi, res=ppi)
+#pdf("plots/heatmap.pdf", width=60, height=40)
 heatmap.2(doc.topics.m,
           Colv=FALSE,
           dendrogram="none",
           scale="row",
-          colsep=(1:50),
-          rowsep=(1:69),
+          colsep=c(1:ncol(doc.topics.m)),
+          rowsep=c(1:nrow(doc.topics.m)),
           sepcolor="white",
-          sepwidth=c(0.001,0.001),
+          sepwidth=c(0.01,0.1),
           heat.colors(256),
           trace="none",
           margin = c(8,18),
