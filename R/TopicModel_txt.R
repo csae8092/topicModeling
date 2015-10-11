@@ -1,93 +1,73 @@
-setwd("C:/Users/pandorfer/ownCloud/GIT/topicModeling")
-
+# set your wd to one level lower than the source file´s location
+setwd("../")
 ###################
 ## preprocessing ##
 ###################
-
 input.dir <- "./data" #loads the directory, where the .txt-files are stored
 files.v <- dir(path = input.dir, pattern=".*txt") #stores all filenames in a vector
 source("R/code/TopicModel_externalFunctions.R") # loads additional helper function
 topic.m <- NULL #creates an empty matrix which will store the text(chunks) and their according file names
 for (i in 1:length(files.v)){ #iterates over all files stored in the data-directory
-  text.v <- scan(paste(input.dir,files.v[i], sep="/"), what = "character", encoding = "UTF-8", sep = "\n")
-  #convert text vector to a single string
-  text.v <- paste(text.v, collapse = " ")
-  #split the string on non word characters - returns a list
-  text.words.v <- strsplit(text.v, "\\W")
-  #unlist the text.words.v
-  text.words.v <- unlist(text.words.v)
-  #remove blanks
-  text.words.v <- text.words.v[which(text.words.v!="")]
-  chunk.m <- makeFlexTextChunks(text.words.v, 200)
-  textname <- gsub("\\..*","", files.v[i])
-  segments.m <- cbind(paste(textname, segment=1:nrow(chunk.m), sep="_"), chunk.m)
-  topic.m <- rbind(topic.m, segments.m)
+  text.v <- scan(paste(input.dir,files.v[i], sep="/"), what = "character", encoding = "UTF-8", sep = "\n") # reads the text of every .txt file in a character vector   
+  text.v <- paste(text.v, collapse = " ") #convert text vector to a single string 
+  text.words.v <- strsplit(text.v, "\\W") #split the string on non word characters - returns a list
+  text.words.v <- unlist(text.words.v) #unlist the text.words.v
+  text.words.v <- text.words.v[which(text.words.v!="")] #remove blanks
+  chunk.m <- makeFlexTextChunks(text.words.v, 200) # calls functions which breaks the text 
+  textname <- gsub("\\..*","", files.v[i]) # removes .txt from filenames
+  segments.m <- cbind(paste(textname, segment=1:nrow(chunk.m), sep="_"), chunk.m) # combines textchunks and their 'names'
+  topic.m <- rbind(topic.m, segments.m) #adds the chunks (and their names) to a matrix
 }
-documents <- as.data.frame(topic.m, stringsAsFactors = FALSE)
-colnames(documents) <- c("id", "text")
-
-#writes the documents data frame to a csv file
-write.csv2(documents, file ='csv/documents.csv',row.names=FALSE)
+documents <- as.data.frame(topic.m, stringsAsFactors = FALSE) # transorms id/chunks matrix to a id/chunks data frame
+colnames(documents) <- c("id", "text") # adds 'headers' or column names to the data frame
+write.csv2(documents, file ='csv/documents.csv',row.names=FALSE) #writes the documents data frame to a csv file
 
 #############################################################
-#create a stopword list based on the preprocessed text      #
-# turns out that this is not very useful, as e.g. "kirche"  #
-# is part of the top50 words in the corpus
-#therefore I use a stopwordlist, created from a former tm-run
+# create a list of the 100 most common words in the corpus 
+# which might be used as a stopword list 
+# turns out that this is not very useful                   
+# therefore use a stopwordlist, based on first runs of tm
 #############################################################
-#alltext.v <- documents$text
-#alltext.string <- paste(alltext.v, collapse = " " )
-#alltext.l <- strsplit(alltext.string, "\\W")
-#alltext.v <- unlist(alltext.l)
-#alltext.freqs.t <- table(alltext.v)
-#sorted.alltext.fregs.t <- sort(alltext.freqs.t, decreasing = TRUE)
-#stopwords <- sorted.alltext.fregs.t[1:50]
-#kirche <- sorted.alltext.fregs.t["kirche"]
+# alltext.v <- documents$text
+# alltext.string <- paste(alltext.v, collapse = " " )
+# alltext.l <- strsplit(alltext.string, "\\W")
+# alltext.v <- unlist(alltext.l)
+# alltext.freqs.t <- table(alltext.v)
+# sorted.alltext.fregs.t <- sort(alltext.freqs.t, decreasing = TRUE)
+# stopwords <- sorted.alltext.fregs.t[1:100]
+# kirche <- sorted.alltext.fregs.t["kirche"]
+
 
 #################
 #run topic-model#
 #################
 
-library(mallet)
+library(mallet) #load tm package mallet
 mallet.instances <- mallet.import(documents$id,
                                   documents$text,
-                                  "R/stoplist.csv",
-                                  FALSE)
-topic.model <- MalletLDA(num.topics=53) #hier wird die Zahl der Topics festgelegt
-topic.model$loadDocuments(mallet.instances)
+                                  "./R/stoplist.csv",
+                                  FALSE) # create a mallet instance
+topic.model <- MalletLDA(num.topics=53) #create a trainer object and set the number of topics
+topic.model$loadDocuments(mallet.instances) # load the data into the trainer object
+topic.model$setAlphaOptimization(40, 80) # some obscure parameters, values taken from Jockers
+topic.model$train(400) #train the model with 400 iterations
 
-topic.model$setAlphaOptimization(40, 80)
-
-topic.model$train(400)
+##################################
+# visualize the results with
+# help of wordclouds and heatmaps
+#################################
 
 #install.packages("wordcloud")
-library(wordcloud)
+library(wordcloud) 
+topic.words.m <- mallet.topic.words(topic.model, smoothed=TRUE,normalized=TRUE) # a unique word(column) per topic (row) frequency matrix
+doc.topics.m <- mallet.doc.topics(topic.model, smoothed=T, normalized=T) # a matrix with one row for every document and one column for every topic
+dimnames(doc.topics.m) <-list(documents$id) #add the chunk id´s as header (row)
 
-topic.words.m <- mallet.topic.words(topic.model, smoothed=TRUE,normalized=TRUE)
-doc.topics.m <- mallet.doc.topics(topic.model, smoothed=T, normalized=T)
-dimnames(doc.topics.m) <-list(documents$id)
-
-topic.words.m <- mallet.topic.words(topic.model, smoothed=TRUE,normalized=TRUE)
-
-hansi <- mallet.top.words(topic.model, topic.words.m[53,], 150) #hier wird festgelegt, welches Topic als Wordcloud visualisiert wird
-words <- hansi[,1]
-numbers <- hansi[,2]
-pal2 <- brewer.pal(3,"Dark2")
-#pdf("plots.pdf")
-wordcloud(words, numbers,
-          scale=c(4,0.5),
-          max.words=100,
-          random.order=FALSE,
-          rot.per=0.0,
-          use.r.layout=FALSE,
-          #col=grey(seq(1,0,-0.01)))
-          col=pal2)
-#dev.off()
 ###################################
-#create pdfs with topic-wordclouds#
+#create pngs with topic-wordclouds#
 ###################################
 
-for(i in 1:length(topic.words.m)){
+for(i in 1:length(topic.words.m)){ #iterate ofer each topic, create a wordcloud out of the top frquent 150 words, and save it as .png file
   ppi <- 100
   hansi <- mallet.top.words(topic.model, topic.words.m[i,], 150)
   words <- hansi[,1]
@@ -106,19 +86,12 @@ for(i in 1:length(topic.words.m)){
 }
 
 #####################################
-#create heatmap of topicdistribution#
+#create heatmap of topic distribution#
 #####################################
-y <- 1
-first.word.m <- NULL
-for(y in 1:length(topic.words.m)){
-  first.word.part <- mallet.top.words(topic.model, topic.words.m[y,], 1)
-  first.word.m <- rbind(first.word.m,first.word.part)
-}
-#colnames(doc.topics.m) <- first.word.m[,1]
+
 colnames(doc.topics.m) <- c(1:nrow(topic.words.m))
 filenames <- documents[,1]
 file.name.part <- strsplit(filenames[1], "_")
-
 filenames.l <- NULL
 i <- 1
 for (i in 1:length(filenames)){
@@ -131,7 +104,6 @@ row.names(doc.topics.m) <-filenames.l
 library(gplots)
 ppi <- 150
 png("plots/heatmap.png", width=90*ppi, height=70*ppi, res=ppi)
-#pdf("plots/heatmap.pdf", width=60, height=40)
 heatmap.2(doc.topics.m,
           Colv=FALSE,
           dendrogram="none",
