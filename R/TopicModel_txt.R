@@ -8,12 +8,12 @@ files.v <- dir(path = input.dir, pattern=".*txt") #stores all filenames in a vec
 source("R/code/TopicModel_externalFunctions.R") # loads additional helper function
 topic.m <- NULL #creates an empty matrix which will store the text(chunks) and their according file names
 for (i in 1:length(files.v)){ #iterates over all files stored in the data-directory
-  text.v <- scan(paste(input.dir,files.v[i], sep="/"), what = "character", encoding = "UTF-8", sep = "\n") # reads the text of every .txt file in a character vector   
-  text.v <- paste(text.v, collapse = " ") #convert text vector to a single string 
+  text.v <- scan(paste(input.dir,files.v[i], sep="/"), what = "character", encoding = "UTF-8", sep = "\n") # reads the text of every .txt file in a character vector
+  text.v <- paste(text.v, collapse = " ") #convert text vector to a single string
   text.words.v <- strsplit(text.v, "\\W") #split the string on non word characters - returns a list
   text.words.v <- unlist(text.words.v) #unlist the text.words.v
   text.words.v <- text.words.v[which(text.words.v!="")] #remove blanks
-  chunk.m <- makeFlexTextChunks(text.words.v, 200) # calls functions which breaks the text 
+  chunk.m <- makeFlexTextChunks(text.words.v, 200) # calls functions which breaks the text
   textname <- gsub("\\..*","", files.v[i]) # removes .txt from filenames
   segments.m <- cbind(paste(textname, segment=1:nrow(chunk.m), sep="_"), chunk.m) # combines textchunks and their 'names'
   topic.m <- rbind(topic.m, segments.m) #adds the chunks (and their names) to a matrix
@@ -23,9 +23,9 @@ colnames(documents) <- c("id", "text") # adds 'headers' or column names to the d
 write.csv2(documents, file ='csv/documents.csv',row.names=FALSE) #writes the documents data frame to a csv file
 
 #############################################################
-# create a list of the 100 most common words in the corpus 
-# which might be used as a stopword list 
-# turns out that this is not very useful                   
+# create a list of the 100 most common words in the corpus
+# which might be used as a stopword list
+# turns out that this is not very useful
 # therefore use a stopwordlist, based on first runs of tm
 #############################################################
 # alltext.v <- documents$text
@@ -43,10 +43,7 @@ write.csv2(documents, file ='csv/documents.csv',row.names=FALSE) #writes the doc
 #################
 
 library(mallet) #load tm package mallet
-mallet.instances <- mallet.import(documents$id,
-                                  documents$text,
-                                  "./R/stoplist.csv",
-                                  FALSE) # create a mallet instance
+mallet.instances <- mallet.import(documents$id, documents$text, "./R/stoplist.csv", FALSE) # create a mallet instance
 topic.model <- MalletLDA(num.topics=53) #create a trainer object and set the number of topics
 topic.model$loadDocuments(mallet.instances) # load the data into the trainer object
 topic.model$setAlphaOptimization(40, 80) # some obscure parameters, values taken from Jockers
@@ -58,10 +55,12 @@ topic.model$train(400) #train the model with 400 iterations
 #################################
 
 #install.packages("wordcloud")
-library(wordcloud) 
+library(wordcloud)
 topic.words.m <- mallet.topic.words(topic.model, smoothed=TRUE,normalized=TRUE) # a unique word(column) per topic (row) frequency matrix
 doc.topics.m <- mallet.doc.topics(topic.model, smoothed=T, normalized=T) # a matrix with one row for every document and one column for every topic
 dimnames(doc.topics.m) <-list(documents$id) #add the chunk id´s as header (row)
+labels.v <- mallet.topic.labels(topic.model,topic.words.m) #binds the most probable words for each topic to a string
+write.csv2(labels.v, file ='csv/topicLabes.csv',row.names=FALSE) #writes the labes.v to a csv.file
 
 ###################################
 #create pngs with topic-wordclouds#
