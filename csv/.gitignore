@@ -1,6 +1,1 @@
-.RData
-.Rhistory
-data/*.txt
-plots/*.png
-.ipynb
-.csv
+*.csv
