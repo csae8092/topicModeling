@@ -2,4 +2,4 @@
 .Rhistory
 data/*.txt
 plots/*.png
-.ipynb
+python/.ipynb_checkpoints/*
