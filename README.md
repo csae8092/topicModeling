@@ -1,5 +1,5 @@
 # topicModeling
-# About
+## About
 This repository contains some lines of code for running topic modeling over a bunch of documents and to visualize the results.
 
 ## requirements
