@@ -66,7 +66,7 @@ write.csv2(labels.v, file ='csv/topicLabes.csv',row.names=FALSE) #writes the lab
 #create pngs with topic-wordclouds#
 ###################################
 
-for(i in 1:length(topic.words.m)){ #iterate ofer each topic, create a wordcloud out of the top frquent 150 words, and save it as .png file
+for(i in 1:length(topic.words.m)){ #iterate over each topic, create a wordcloud out of the top frequent 150 words, and save it as .png file
   ppi <- 100
   hansi <- mallet.top.words(topic.model, topic.words.m[i,], 150)
   words <- hansi[,1]
