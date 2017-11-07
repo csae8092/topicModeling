@@ -1,3 +1,5 @@
+[![DOI](https://zenodo.org/badge/42352047.svg)](https://zenodo.org/badge/latestdoi/42352047)
+
 # topicModeling
 ## About
 This repository contains some lines of code for running topic modeling over a bunch of documents and to visualize the results.
